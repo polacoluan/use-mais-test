@@ -1,0 +1,12 @@
+backend/.agents/
+backend/.codex/
+backend/.env
+backend/.phpunit.result.cache
+backend/bootstrap/cache/*.php
+backend/storage/logs/laravel.log
+backend/vendor/
+frontend/.env*.local
+frontend/.next/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+frontend-history.bundle
