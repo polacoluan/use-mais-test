@@ -13,13 +13,24 @@ if [ -f .env ] && ! grep -Eq '^APP_KEY=base64:' .env; then
   php artisan key:generate --force --no-interaction
 fi
 
-if [ "${DB_CONNECTION:-}" = "mysql" ]; then
+if php -r '
+  $env = is_file(".env") ? (parse_ini_file(".env", false, INI_SCANNER_RAW) ?: []) : [];
+  $connection = getenv("DB_CONNECTION");
+  if ($connection === false || $connection === "") {
+      $connection = $env["DB_CONNECTION"] ?? "sqlite";
+  }
+  exit($connection === "mysql" ? 0 : 1);
+' ; then
   until php -r '
-    $host = getenv("DB_HOST") ?: "mysql";
-    $port = getenv("DB_PORT") ?: "3306";
-    $database = getenv("DB_DATABASE") ?: "backend";
-    $username = getenv("DB_USERNAME") ?: "backend";
-    $password = getenv("DB_PASSWORD") ?: "backend";
+    $env = is_file(".env") ? (parse_ini_file(".env", false, INI_SCANNER_RAW) ?: []) : [];
+    $host = getenv("DB_HOST") ?: ($env["DB_HOST"] ?? "mysql");
+    $port = getenv("DB_PORT") ?: ($env["DB_PORT"] ?? "3306");
+    $database = getenv("DB_DATABASE") ?: ($env["DB_DATABASE"] ?? "backend");
+    $username = getenv("DB_USERNAME") ?: ($env["DB_USERNAME"] ?? "backend");
+    $password = getenv("DB_PASSWORD");
+    if ($password === false) {
+        $password = $env["DB_PASSWORD"] ?? "backend";
+    }
 
     try {
         new PDO("mysql:host={$host};port={$port};dbname={$database}", $username, $password);

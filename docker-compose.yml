@@ -2,17 +2,16 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: backend
-      MYSQL_USER: backend
-      MYSQL_PASSWORD: backend
-      MYSQL_ROOT_PASSWORD: root
+    env_file:
+      - ./backend/.env
+    entrypoint: ["/bin/sh", "/usr/local/bin/mysql-compose-entrypoint.sh"]
     ports:
       - "3306:3306"
     volumes:
+      - ./docker/mysql-entrypoint.sh:/usr/local/bin/mysql-compose-entrypoint.sh:ro
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -27,15 +26,6 @@ services:
       mysql:
         condition: service_healthy
     working_dir: /var/www/html
-    environment:
-      APP_URL: http://localhost:8000
-      DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: backend
-      DB_USERNAME: backend
-      DB_PASSWORD: backend
-      CLERK_AUTHORIZED_PARTIES: http://localhost:3000,http://127.0.0.1:3000
     ports:
       - "8000:8000"
     volumes:
@@ -51,7 +41,6 @@ services:
       - backend
     working_dir: /app
     environment:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
       NEXT_TELEMETRY_DISABLED: "1"
