@@ -45,6 +45,7 @@ return [
             static fn (string $origin): string => trim($origin),
             explode(',', (string) env('CLERK_AUTHORIZED_PARTIES', 'http://localhost:3000,http://127.0.0.1:3000'))
         ))),
+        'clock_skew' => (int) env('CLERK_CLOCK_SKEW', 5),
     ],
 
 ];

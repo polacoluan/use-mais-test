@@ -3,7 +3,9 @@
 namespace App\Services\Clerk;
 
 use App\Models\User;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -76,7 +78,16 @@ class ClerkUserSynchronizer
             return null;
         }
 
-        return $response->throw()->json();
+        try {
+            return $response->throw()->json();
+        } catch (RequestException $exception) {
+            Log::warning('Clerk user lookup failed during authentication.', [
+                'clerk_user_id' => $clerkUserId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        }
     }
 
     /**

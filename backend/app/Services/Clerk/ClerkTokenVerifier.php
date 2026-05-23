@@ -25,7 +25,7 @@ class ClerkTokenVerifier
 
         [$header, $claims, $signingInput, $signature] = $this->parseToken($token);
 
-        $publicKey = $this->resolvePublicKey($header);
+        $publicKey = $this->resolvePublicKey($header, $claims);
         $algorithm = $this->resolveOpenSslAlgorithm($header);
 
         $isVerified = openssl_verify($signingInput, $signature, $publicKey, $algorithm);
@@ -106,8 +106,9 @@ class ClerkTokenVerifier
 
     /**
      * @param  array<string, mixed>  $header
+     * @param  array<string, mixed>  $claims
      */
-    private function resolvePublicKey(array $header): string
+    private function resolvePublicKey(array $header, array $claims): string
     {
         $jwtKey = config('services.clerk.jwt_key');
 
@@ -121,7 +122,7 @@ class ClerkTokenVerifier
             throw new RuntimeException('Missing Clerk key identifier.');
         }
 
-        $keys = $this->fetchJwks();
+        $keys = $this->fetchJwks($claims);
 
         foreach ($keys as $key) {
             if (($key['kid'] ?? null) === $kid) {
@@ -133,24 +134,17 @@ class ClerkTokenVerifier
     }
 
     /**
+     * @param  array<string, mixed>  $claims
      * @return array<int, array<string, mixed>>
      */
-    private function fetchJwks(): array
+    private function fetchJwks(array $claims): array
     {
-        $jwksUrl = (string) config('services.clerk.jwks_url');
+        $jwksUrl = $this->resolveJwksUrl($claims);
         $cacheKey = 'clerk:jwks:'.sha1($jwksUrl);
 
         /** @var array<string, mixed> $jwks */
         $jwks = Cache::remember($cacheKey, now()->addHours(6), function () use ($jwksUrl): array {
-            $request = Http::acceptJson();
-
-            $secretKey = config('services.clerk.secret_key');
-
-            if (is_string($secretKey) && trim($secretKey) !== '') {
-                $request = $request->withToken($secretKey);
-            }
-
-            return $request->get($jwksUrl)->throw()->json();
+            return Http::acceptJson()->get($jwksUrl)->throw()->json();
         });
 
         $keys = $jwks['keys'] ?? null;
@@ -160,6 +154,20 @@ class ClerkTokenVerifier
         }
 
         return array_values(array_filter($keys, 'is_array'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $claims
+     */
+    private function resolveJwksUrl(array $claims): string
+    {
+        $issuer = $claims['iss'] ?? null;
+
+        if (is_string($issuer) && filter_var($issuer, FILTER_VALIDATE_URL) !== false) {
+            return rtrim($issuer, '/').'/.well-known/jwks.json';
+        }
+
+        return (string) config('services.clerk.jwks_url');
     }
 
     /**
@@ -260,16 +268,22 @@ class ClerkTokenVerifier
     private function validateTimeClaims(array $claims): void
     {
         $now = time();
+        $clockSkew = (int) config('services.clerk.clock_skew', 5);
 
         $notBefore = $claims['nbf'] ?? null;
         $expiresAt = $claims['exp'] ?? null;
+        $issuedAt = $claims['iat'] ?? null;
 
-        if (is_numeric($notBefore) && (int) $notBefore > $now) {
+        if (is_numeric($notBefore) && (int) $notBefore > ($now + $clockSkew)) {
             throw new RuntimeException('Clerk session token is not valid yet.');
         }
 
-        if (! is_numeric($expiresAt) || (int) $expiresAt <= $now) {
+        if (! is_numeric($expiresAt) || (int) $expiresAt < ($now - $clockSkew)) {
             throw new RuntimeException('Clerk session token has expired.');
+        }
+
+        if (is_numeric($issuedAt) && (int) $issuedAt > ($now + $clockSkew)) {
+            throw new RuntimeException('Clerk session token was issued in the future.');
         }
     }
 

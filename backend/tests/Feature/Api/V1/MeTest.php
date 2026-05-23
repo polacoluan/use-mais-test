@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\V1;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use OpenSSLAsymmetricKey;
 use Tests\TestCase;
 
@@ -68,6 +69,45 @@ class MeTest extends TestCase
             ]);
     }
 
+    public function test_it_authenticates_with_issuer_jwks_even_if_clerk_user_lookup_fails(): void
+    {
+        [$privateKey, $publicKey] = $this->generateKeyPair();
+
+        config()->set('services.clerk.jwt_key', null);
+        config()->set('services.clerk.secret_key', 'sk_test_dummy');
+        config()->set('services.clerk.authorized_parties', ['http://localhost:3000']);
+
+        Http::fake([
+            'https://nearby-newt-81.clerk.accounts.dev/.well-known/jwks.json' => Http::response([
+                'keys' => [
+                    $this->createJwk('test-key', $publicKey),
+                ],
+            ]),
+            'https://api.clerk.com/v1/users/*' => Http::response([
+                'errors' => [
+                    ['message' => 'Unauthorized'],
+                ],
+            ], 401),
+        ]);
+
+        $token = $this->createToken([
+            'azp' => 'http://localhost:3000',
+            'exp' => time() + 3600,
+            'iss' => 'https://nearby-newt-81.clerk.accounts.dev',
+            'nbf' => time() - 60,
+            'sid' => 'sess_test_issuer_jwks',
+            'sub' => 'user_test_issuer_jwks',
+        ], $privateKey);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/me');
+
+        $response->assertOk()
+            ->assertJsonPath('data.clerk_user_id', 'user_test_issuer_jwks')
+            ->assertJsonPath('data.email', 'user_test_issuer_jwks@clerk.local')
+            ->assertJsonPath('meta.clerk.session_id', 'sess_test_issuer_jwks');
+    }
+
     /**
      * @return array{0: OpenSSLAsymmetricKey, 1: string}
      */
@@ -119,5 +159,33 @@ class MeTest extends TestCase
     private function base64UrlEncode(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function createJwk(string $kid, string $publicKey): array
+    {
+        $resource = openssl_pkey_get_public($publicKey);
+
+        if (! $resource instanceof OpenSSLAsymmetricKey) {
+            $this->fail('Unable to parse the RSA public key for Clerk JWKS tests.');
+        }
+
+        $details = openssl_pkey_get_details($resource);
+        $rsa = is_array($details) ? ($details['rsa'] ?? null) : null;
+
+        if (! is_array($rsa) || ! isset($rsa['n'], $rsa['e']) || ! is_string($rsa['n']) || ! is_string($rsa['e'])) {
+            $this->fail('Unable to extract RSA modulus and exponent for Clerk JWKS tests.');
+        }
+
+        return [
+            'alg' => 'RS256',
+            'e' => $this->base64UrlEncode($rsa['e']),
+            'kid' => $kid,
+            'kty' => 'RSA',
+            'n' => $this->base64UrlEncode($rsa['n']),
+            'use' => 'sig',
+        ];
     }
 }
