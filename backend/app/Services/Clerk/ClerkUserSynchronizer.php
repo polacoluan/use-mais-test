@@ -3,6 +3,7 @@
 namespace App\Services\Clerk;
 
 use App\Models\User;
+use App\Repositories\UserRepository;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,10 @@ use RuntimeException;
 
 class ClerkUserSynchronizer
 {
+    public function __construct(
+        private readonly UserRepository $users,
+    ) {}
+
     /**
      * Create or update the local user represented by the Clerk subject claim.
      *
@@ -28,17 +33,13 @@ class ClerkUserSynchronizer
         $primaryEmail = $this->extractPrimaryEmail($clerkUser);
         $displayName = $this->resolveDisplayName($clerkUser, $clerkUserId);
 
-        $user = User::query()
-            ->where('clerk_user_id', $clerkUserId)
-            ->first();
+        $user = $this->users->findByClerkUserId($clerkUserId);
 
         if ($user === null && $primaryEmail !== null) {
-            $user = User::query()
-                ->where('email', $primaryEmail)
-                ->first();
+            $user = $this->users->findByEmail($primaryEmail);
         }
 
-        $user ??= new User;
+        $user ??= $this->users->make();
 
         $user->clerk_user_id = $clerkUserId;
         $user->name = $displayName;
@@ -53,9 +54,7 @@ class ClerkUserSynchronizer
             $user->password = Str::random(40);
         }
 
-        $user->save();
-
-        return $user->fresh();
+        return $this->users->save($user);
     }
 
     /**

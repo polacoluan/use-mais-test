@@ -30,9 +30,11 @@ class AuthenticateClerk
             $request->setUserResolver(static fn () => $user);
 
             Auth::guard('web')->setUser($user);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            report($exception);
+
             return response()->json([
-                'message' => 'Unauthenticated.',
+                'message' => 'Não foi possível autenticar sua sessão.',
             ], 401);
         }
 

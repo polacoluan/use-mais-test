@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api\V1;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 use OpenSSLAsymmetricKey;
 use Tests\TestCase;
@@ -11,13 +13,37 @@ class MeTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Route::middleware('clerk.auth')->get('/_test/authenticated-user', function (Request $request) {
+            /** @var array<string, mixed> $clerkAuth */
+            $clerkAuth = $request->attributes->get('clerk_auth', []);
+
+            return response()->json([
+                'data' => [
+                    'id' => $request->user()?->id,
+                    'clerk_user_id' => $request->user()?->clerk_user_id,
+                    'email' => $request->user()?->email,
+                ],
+                'meta' => [
+                    'clerk' => [
+                        'user_id' => $clerkAuth['sub'] ?? null,
+                        'session_id' => $clerkAuth['sid'] ?? null,
+                    ],
+                ],
+            ]);
+        });
+    }
+
     public function test_it_rejects_requests_without_a_clerk_session_token(): void
     {
-        $response = $this->getJson('/api/v1/me');
+        $response = $this->getJson('/_test/authenticated-user');
 
         $response->assertUnauthorized()
             ->assertJson([
-                'message' => 'Unauthenticated.',
+                'message' => 'Não foi possível autenticar sua sessão.',
             ]);
     }
 
@@ -37,7 +63,7 @@ class MeTest extends TestCase
         ], $privateKey);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/me');
+            ->getJson('/_test/authenticated-user');
 
         $response->assertOk()
             ->assertJsonPath('data.clerk_user_id', 'user_test_123')
@@ -61,11 +87,11 @@ class MeTest extends TestCase
         ], $privateKey);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/me');
+            ->getJson('/_test/authenticated-user');
 
         $response->assertUnauthorized()
             ->assertJson([
-                'message' => 'Unauthenticated.',
+                'message' => 'Não foi possível autenticar sua sessão.',
             ]);
     }
 
@@ -100,7 +126,7 @@ class MeTest extends TestCase
         ], $privateKey);
 
         $response = $this->withHeader('Authorization', 'Bearer '.$token)
-            ->getJson('/api/v1/me');
+            ->getJson('/_test/authenticated-user');
 
         $response->assertOk()
             ->assertJsonPath('data.clerk_user_id', 'user_test_issuer_jwks')
