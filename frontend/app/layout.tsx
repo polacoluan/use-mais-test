@@ -1,8 +1,10 @@
+import type { Metadata } from "next"
 import { ClerkProvider } from "@clerk/nextjs"
 import { shadcn } from "@clerk/ui/themes"
 import { Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
+import { QueryProvider } from "@/components/query-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 
@@ -13,6 +15,10 @@ const fontMono = Geist_Mono({
   variable: "--font-mono",
 })
 
+export const metadata: Metadata = {
+  title: "Teste - Use Mais RH",
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -20,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pt-BR"
       suppressHydrationWarning
       className={cn(
         "antialiased",
@@ -31,7 +37,9 @@ export default function RootLayout({
     >
       <body>
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <ThemeProvider>{children}</ThemeProvider>
+          <QueryProvider>
+            <ThemeProvider>{children}</ThemeProvider>
+          </QueryProvider>
         </ClerkProvider>
       </body>
     </html>
