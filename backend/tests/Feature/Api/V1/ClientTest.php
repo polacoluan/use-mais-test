@@ -4,6 +4,7 @@ namespace Tests\Feature\Api\V1;
 
 use App\Http\Middleware\AuthenticateClerk;
 use App\Models\Client;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -11,23 +12,43 @@ class ClientTest extends TestCase
 {
     use RefreshDatabase;
 
+    private User $user;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->withoutMiddleware(AuthenticateClerk::class);
+        $this->user = User::factory()->create();
+        $this->actingAs($this->user);
     }
 
     public function test_it_lists_all_clients(): void
     {
-        $clients = Client::factory()->count(2)->create();
+        Client::factory()->for($this->user)->create(['name' => 'Zeta']);
+        Client::factory()->for($this->user)->create(['name' => 'Beta']);
+        Client::factory()->for($this->user)->create(['name' => 'Alfa']);
 
-        $response = $this->getJson('/api/v1/clients');
+        $response = $this->getJson('/api/v1/clients?page=1&per_page=2');
 
         $response->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.id', $clients->sortBy('name')->values()->get(0)?->id)
-            ->assertJsonPath('data.1.id', $clients->sortBy('name')->values()->get(1)?->id);
+            ->assertJsonPath('data.0.name', 'Alfa')
+            ->assertJsonPath('data.1.name', 'Beta')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 2)
+            ->assertJsonPath('meta.last_page', 2)
+            ->assertJsonPath('meta.total', 3);
+    }
+
+    public function test_it_validates_pagination_parameters(): void
+    {
+        $response = $this->getJson('/api/v1/clients?page=0&per_page=101');
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['page', 'per_page'])
+            ->assertJsonPath('errors.page.0', 'O campo página deve ser no mínimo 1.')
+            ->assertJsonPath('errors.per_page.0', 'O campo quantidade por página deve ser no máximo 100.');
     }
 
     public function test_it_creates_a_client(): void
@@ -43,6 +64,7 @@ class ClientTest extends TestCase
             ->assertJsonPath('data.state', 'SP');
 
         $this->assertDatabaseHas('clients', [
+            'user_id' => $this->user->id,
             'email' => mb_strtolower($payload['email']),
             'postal_code' => '12345678',
             'state' => 'SP',
@@ -71,7 +93,7 @@ class ClientTest extends TestCase
 
     public function test_it_validates_field_formats_and_lengths_when_creating_a_client(): void
     {
-        Client::factory()->create([
+        Client::factory()->for($this->user)->create([
             'email' => 'cliente@example.com',
         ]);
 
@@ -108,7 +130,7 @@ class ClientTest extends TestCase
 
     public function test_it_updates_a_client(): void
     {
-        $client = Client::factory()->create();
+        $client = Client::factory()->for($this->user)->create();
         $payload = $this->validPayload([
             'name' => 'Cliente Atualizado',
             'email' => 'novoemail@example.com',
@@ -127,6 +149,7 @@ class ClientTest extends TestCase
 
         $this->assertDatabaseHas('clients', [
             'id' => $client->id,
+            'user_id' => $this->user->id,
             'name' => 'Cliente Atualizado',
             'email' => 'novoemail@example.com',
             'postal_code' => '87654321',
@@ -145,7 +168,7 @@ class ClientTest extends TestCase
 
     public function test_it_deletes_a_client(): void
     {
-        $client = Client::factory()->create();
+        $client = Client::factory()->for($this->user)->create();
 
         $response = $this->deleteJson("/api/v1/clients/{$client->id}");
 
@@ -170,10 +193,10 @@ class ClientTest extends TestCase
 
     public function test_it_does_not_list_soft_deleted_clients(): void
     {
-        $visibleClient = Client::factory()->create([
+        $visibleClient = Client::factory()->for($this->user)->create([
             'name' => 'Cliente Visível',
         ]);
-        $deletedClient = Client::factory()->create([
+        $deletedClient = Client::factory()->for($this->user)->create([
             'name' => 'Cliente Removido',
         ]);
 
@@ -188,7 +211,7 @@ class ClientTest extends TestCase
 
     public function test_it_allows_creating_a_client_with_the_same_email_of_a_soft_deleted_client(): void
     {
-        $client = Client::factory()->create([
+        $client = Client::factory()->for($this->user)->create([
             'email' => 'cliente@example.com',
         ]);
 
@@ -202,12 +225,75 @@ class ClientTest extends TestCase
 
         $this->assertDatabaseHas('clients', [
             'id' => $client->id,
+            'user_id' => $this->user->id,
             'deleted_at' => $client->fresh()?->deleted_at,
         ]);
         $this->assertDatabaseHas('clients', [
+            'user_id' => $this->user->id,
             'email' => 'cliente@example.com',
             'deleted_at' => null,
         ]);
+    }
+
+    public function test_it_lists_only_the_authenticated_user_clients(): void
+    {
+        Client::factory()->for($this->user)->create(['name' => 'Cliente Meu']);
+        Client::factory()->create(['name' => 'Cliente Outro']);
+
+        $response = $this->getJson('/api/v1/clients');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Cliente Meu');
+    }
+
+    public function test_it_does_not_allow_updating_another_user_client(): void
+    {
+        $client = Client::factory()->create();
+
+        $response = $this->putJson("/api/v1/clients/{$client->id}", $this->validPayload());
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['client_id'])
+            ->assertJsonPath('errors.client_id.0', 'O cliente informado não foi encontrado.');
+    }
+
+    public function test_it_does_not_allow_deleting_another_user_client(): void
+    {
+        $client = Client::factory()->create();
+
+        $response = $this->deleteJson("/api/v1/clients/{$client->id}");
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['client_id'])
+            ->assertJsonPath('errors.client_id.0', 'O cliente informado não foi encontrado.');
+    }
+
+    public function test_it_allows_creating_clients_with_the_same_email_for_different_users(): void
+    {
+        Client::factory()->create([
+            'email' => 'cliente@example.com',
+        ]);
+
+        $response = $this->postJson('/api/v1/clients', $this->validPayload());
+
+        $response->assertCreated()
+            ->assertJsonPath('data.email', 'cliente@example.com');
+
+        $this->assertDatabaseCount('clients', 2);
+    }
+
+    public function test_it_rate_limits_authenticated_requests(): void
+    {
+        config()->set('api.rate_limits.authenticated.per_minute', 2);
+
+        $this->getJson('/api/v1/clients')->assertOk();
+        $this->getJson('/api/v1/clients')->assertOk();
+        $this->getJson('/api/v1/clients')
+            ->assertStatus(429)
+            ->assertJson([
+                'message' => 'Muitas solicitações foram realizadas. Tente novamente em instantes.',
+            ]);
     }
 
     /**

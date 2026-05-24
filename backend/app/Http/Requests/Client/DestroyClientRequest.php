@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\Client;
 
-use Illuminate\Validation\Rule;
-
 class DestroyClientRequest extends ClientRequest
 {
     /**
@@ -12,7 +10,7 @@ class DestroyClientRequest extends ClientRequest
     public function rules(): array
     {
         return [
-            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
+            'client_id' => ['required', 'integer', $this->scopedClientExistsRule()],
         ];
     }
 

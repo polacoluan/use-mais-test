@@ -3,19 +3,18 @@
 namespace App\Repositories;
 
 use App\Models\Client;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class ClientRepository
 {
-    /**
-     * @return Collection<int, Client>
-     */
-    public function getAll(): Collection
+    public function paginate(int $userId, int $page, int $perPage): LengthAwarePaginator
     {
         return Client::query()
+            ->where('user_id', $userId)
             ->orderBy('name')
-            ->get();
+            ->orderBy('id')
+            ->paginate($perPage, ['*'], 'page', $page);
     }
 
     public function create(array $data): Client
@@ -26,10 +25,12 @@ class ClientRepository
         return $client->fresh();
     }
 
-    public function findOrFail(int $clientId): Client
+    public function findOrFail(int $userId, int $clientId): Client
     {
         /** @var Client $client */
-        $client = Client::query()->findOrFail($clientId);
+        $client = Client::query()
+            ->where('user_id', $userId)
+            ->findOrFail($clientId);
 
         return $client;
     }

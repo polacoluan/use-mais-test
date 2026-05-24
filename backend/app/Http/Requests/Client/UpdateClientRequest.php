@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\Client;
 
-use Illuminate\Validation\Rule;
-
 class UpdateClientRequest extends ClientRequest
 {
     /**
@@ -14,9 +12,9 @@ class UpdateClientRequest extends ClientRequest
         $clientId = (int) $this->route('client');
 
         return [
-            'client_id' => ['required', 'integer', Rule::exists('clients', 'id')->whereNull('deleted_at')],
+            'client_id' => ['required', 'integer', $this->scopedClientExistsRule()],
             'name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'string', 'email', 'max:150', Rule::unique('clients', 'email')->ignore($clientId)->whereNull('deleted_at')],
+            'email' => ['required', 'string', 'email', 'max:150', $this->scopedUniqueEmailRule($clientId)],
             'postal_code' => ['required', 'string', 'size:8'],
             'street' => ['required', 'string', 'max:150'],
             'street_number' => ['required', 'string', 'max:20'],

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\ClientFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -18,6 +19,7 @@ class Client extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'user_id',
         'name',
         'email',
         'postal_code',
@@ -28,4 +30,9 @@ class Client extends Model
         'city',
         'state',
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 }

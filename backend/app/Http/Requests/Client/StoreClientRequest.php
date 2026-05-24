@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\Client;
 
-use Illuminate\Validation\Rule;
-
 class StoreClientRequest extends ClientRequest
 {
     /**
@@ -21,7 +19,7 @@ class StoreClientRequest extends ClientRequest
     {
         return [
             'name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'string', 'email', 'max:150', Rule::unique('clients', 'email')->whereNull('deleted_at')],
+            'email' => ['required', 'string', 'email', 'max:150', $this->scopedUniqueEmailRule()],
             'postal_code' => ['required', 'string', 'size:8'],
             'street' => ['required', 'string', 'max:150'],
             'street_number' => ['required', 'string', 'max:20'],

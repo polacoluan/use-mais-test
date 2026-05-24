@@ -13,8 +13,9 @@ return new class extends Migration
     {
         Schema::create('clients', function (Blueprint $table): void {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name', 150);
-            $table->string('email', 150)->unique();
+            $table->string('email', 150);
             $table->string('postal_code', 8);
             $table->string('street', 150);
             $table->string('street_number', 20);
@@ -24,6 +25,9 @@ return new class extends Migration
             $table->char('state', 2);
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['user_id', 'email']);
+            $table->index(['user_id', 'name']);
         });
     }
 

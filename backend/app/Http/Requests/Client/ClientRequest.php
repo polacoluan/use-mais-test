@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Client;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 abstract class ClientRequest extends FormRequest
 {
@@ -60,5 +62,36 @@ abstract class ClientRequest extends FormRequest
             'neighborhood' => is_string($this->input('neighborhood')) ? trim($this->input('neighborhood')) : $this->input('neighborhood'),
             'city' => is_string($this->input('city')) ? trim($this->input('city')) : $this->input('city'),
         ]);
+    }
+
+    protected function authenticatedUserId(): int
+    {
+        return (int) $this->user()?->getAuthIdentifier();
+    }
+
+    protected function scopedClientExistsRule()
+    {
+        return Rule::exists('clients', 'id')
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('user_id', $this->authenticatedUserId())
+                    ->whereNull('deleted_at');
+            });
+    }
+
+    protected function scopedUniqueEmailRule(?int $ignoredClientId = null)
+    {
+        $rule = Rule::unique('clients', 'email')
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('user_id', $this->authenticatedUserId())
+                    ->whereNull('deleted_at');
+            });
+
+        if ($ignoredClientId !== null) {
+            $rule->ignore($ignoredClientId);
+        }
+
+        return $rule;
     }
 }

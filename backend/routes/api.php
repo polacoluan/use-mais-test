@@ -4,10 +4,11 @@ use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\PostalCodeLookupController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('clerk.auth')
+Route::middleware(['clerk.auth', 'throttle:authenticated-api'])
     ->prefix('v1')
     ->group(function (): void {
         Route::get('/postal-codes/{postal_code}', [PostalCodeLookupController::class, 'show'])
+            ->middleware('throttle:postal-code-lookups')
             ->name('api.v1.postal-codes.show');
         Route::get('/clients', [ClientController::class, 'index'])
             ->name('api.v1.clients.index');
