@@ -48,4 +48,9 @@ return [
         'clock_skew' => (int) env('CLERK_CLOCK_SKEW', 5),
     ],
 
+    'via_cep' => [
+        'base_url' => env('VIA_CEP_BASE_URL', 'https://viacep.com.br'),
+        'timeout' => (int) env('VIA_CEP_TIMEOUT', 5),
+    ],
+
 ];
