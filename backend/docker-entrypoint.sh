@@ -7,7 +7,19 @@ if [ ! -f .env ] && [ -f .env.example ]; then
   cp .env.example .env
 fi
 
-composer install --no-interaction --prefer-dist
+LOCK_HASH_FILE="vendor/.composer-lock-hash"
+CURRENT_LOCK_HASH="$(sha1sum composer.lock | awk '{print $1}')"
+STORED_LOCK_HASH=""
+
+if [ -f "$LOCK_HASH_FILE" ]; then
+  STORED_LOCK_HASH="$(cat "$LOCK_HASH_FILE")"
+fi
+
+if [ ! -f vendor/autoload.php ] || [ "$CURRENT_LOCK_HASH" != "$STORED_LOCK_HASH" ]; then
+  composer install --no-interaction --prefer-dist
+  mkdir -p vendor
+  printf '%s' "$CURRENT_LOCK_HASH" > "$LOCK_HASH_FILE"
+fi
 
 if [ -f .env ] && ! grep -Eq '^APP_KEY=base64:' .env; then
   php artisan key:generate --force --no-interaction

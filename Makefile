@@ -6,11 +6,11 @@ prepare-env:
 
 start:
 	@$(MAKE) prepare-env
-	docker compose up -d --force-recreate --remove-orphans
+	docker compose up -d --wait --wait-timeout 180 --force-recreate --remove-orphans
 
 up:
 	@$(MAKE) prepare-env
-	docker compose up --build -d --force-recreate --remove-orphans
+	docker compose up --build -d --wait --wait-timeout 180 --force-recreate --remove-orphans
 
 down:
 	docker compose down --remove-orphans
@@ -25,7 +25,7 @@ logs:
 restart:
 	@$(MAKE) prepare-env
 	docker compose down --remove-orphans
-	docker compose up --build -d --force-recreate --remove-orphans
+	docker compose up --build -d --wait --wait-timeout 180 --force-recreate --remove-orphans
 
 ps:
 	docker compose ps
