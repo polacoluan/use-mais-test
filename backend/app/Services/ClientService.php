@@ -20,6 +20,11 @@ class ClientService
         return $this->clients->paginate($userId, $page, $perPage);
     }
 
+    public function find(int $userId, int $clientId): Client
+    {
+        return $this->clients->findOrFail($userId, $clientId);
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Client\DestroyClientRequest;
 use App\Http\Requests\Client\ListClientsRequest;
+use App\Http\Requests\Client\ShowClientRequest;
 use App\Http\Requests\Client\StoreClientRequest;
 use App\Http\Requests\Client\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
@@ -26,6 +27,13 @@ class ClientController extends Controller
         $userId = $this->authenticatedUserId($request);
 
         return ClientResource::collection($this->service->list($userId, $page, $perPage));
+    }
+
+    public function show(ShowClientRequest $request, int $client): ClientResource
+    {
+        return ClientResource::make(
+            $this->service->find($this->authenticatedUserId($request), $client),
+        );
     }
 
     public function store(StoreClientRequest $request): JsonResponse

@@ -17,7 +17,7 @@ class UpdateClientRequest extends ClientRequest
             'email' => ['required', 'string', 'email', 'max:150', $this->scopedUniqueEmailRule($clientId)],
             'postal_code' => ['required', 'string', 'size:8'],
             'street' => ['required', 'string', 'max:150'],
-            'street_number' => ['required', 'string', 'max:20'],
+            'street_number' => ['required', 'string', 'max:10'],
             'complement' => ['nullable', 'string', 'max:100'],
             'neighborhood' => ['required', 'string', 'max:100'],
             'city' => ['required', 'string', 'max:100'],

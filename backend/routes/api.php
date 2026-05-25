@@ -12,6 +12,9 @@ Route::middleware(['clerk.auth', 'throttle:authenticated-api'])
             ->name('api.v1.postal-codes.show');
         Route::get('/clients', [ClientController::class, 'index'])
             ->name('api.v1.clients.index');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])
+            ->whereNumber('client')
+            ->name('api.v1.clients.show');
         Route::post('/clients', [ClientController::class, 'store'])
             ->name('api.v1.clients.store');
         Route::put('/clients/{client}', [ClientController::class, 'update'])

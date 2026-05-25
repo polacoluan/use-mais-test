@@ -81,6 +81,27 @@ class PostalCodeTest extends TestCase
             ]);
     }
 
+    public function test_it_returns_not_found_when_the_external_service_returns_an_empty_address(): void
+    {
+        Http::fake([
+            'https://viacep.com.br/ws/81270170/json/' => Http::response([
+                'cep' => '',
+                'logradouro' => '',
+                'complemento' => null,
+                'bairro' => '',
+                'localidade' => '',
+                'uf' => '',
+            ]),
+        ]);
+
+        $response = $this->getJson('/api/v1/postal-codes/81270170');
+
+        $response->assertNotFound()
+            ->assertJson([
+                'message' => 'O CEP informado é inválido ou não foi encontrado.',
+            ]);
+    }
+
     public function test_it_returns_a_friendly_message_when_the_external_service_is_unavailable(): void
     {
         Http::fake([

@@ -32,7 +32,7 @@ class ViaCepService
             throw new NotFoundHttpException('O CEP informado não foi encontrado.');
         }
 
-        return [
+        $postalCodeData = [
             'postal_code' => (string) ($data['cep'] ?? ''),
             'street' => (string) ($data['logradouro'] ?? ''),
             'complement' => $this->nullableString($data['complemento'] ?? null),
@@ -40,6 +40,12 @@ class ViaCepService
             'city' => (string) ($data['localidade'] ?? ''),
             'state' => (string) ($data['uf'] ?? ''),
         ];
+
+        if (! $this->hasRequiredAddressData($postalCodeData)) {
+            throw new NotFoundHttpException('O CEP informado é inválido ou não foi encontrado.');
+        }
+
+        return $postalCodeData;
     }
 
     private function nullableString(mixed $value): ?string
@@ -51,5 +57,22 @@ class ViaCepService
         $trimmedValue = trim($value);
 
         return $trimmedValue === '' ? null : $trimmedValue;
+    }
+
+    /**
+     * @param  array<string, string|null>  $postalCodeData
+     */
+    private function hasRequiredAddressData(array $postalCodeData): bool
+    {
+        return $this->hasValue($postalCodeData['postal_code'] ?? null)
+            && $this->hasValue($postalCodeData['street'] ?? null)
+            && $this->hasValue($postalCodeData['neighborhood'] ?? null)
+            && $this->hasValue($postalCodeData['city'] ?? null)
+            && $this->hasValue($postalCodeData['state'] ?? null);
+    }
+
+    private function hasValue(?string $value): bool
+    {
+        return is_string($value) && trim($value) !== '';
     }
 }

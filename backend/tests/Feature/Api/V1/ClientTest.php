@@ -71,6 +71,19 @@ class ClientTest extends TestCase
         ]);
     }
 
+    public function test_it_returns_a_single_client(): void
+    {
+        $client = Client::factory()->for($this->user)->create([
+            'name' => 'Cliente de Detalhe',
+        ]);
+
+        $response = $this->getJson("/api/v1/clients/{$client->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.id', $client->id)
+            ->assertJsonPath('data.name', 'Cliente de Detalhe');
+    }
+
     public function test_it_validates_required_fields_when_creating_a_client(): void
     {
         $response = $this->postJson('/api/v1/clients', []);
@@ -102,7 +115,7 @@ class ClientTest extends TestCase
             'email' => 'cliente@example.com',
             'postal_code' => '1234',
             'street' => str_repeat('b', 151),
-            'street_number' => str_repeat('1', 21),
+            'street_number' => str_repeat('1', 11),
             'complement' => str_repeat('c', 101),
             'neighborhood' => str_repeat('d', 101),
             'city' => str_repeat('e', 101),
@@ -252,6 +265,17 @@ class ClientTest extends TestCase
         $client = Client::factory()->create();
 
         $response = $this->putJson("/api/v1/clients/{$client->id}", $this->validPayload());
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['client_id'])
+            ->assertJsonPath('errors.client_id.0', 'O cliente informado não foi encontrado.');
+    }
+
+    public function test_it_does_not_allow_viewing_another_user_client(): void
+    {
+        $client = Client::factory()->create();
+
+        $response = $this->getJson("/api/v1/clients/{$client->id}");
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors(['client_id'])
