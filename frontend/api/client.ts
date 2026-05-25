@@ -1,4 +1,7 @@
-import axios, { type AxiosRequestConfig } from "axios"
+import axios from "axios"
+
+import { apiValidationErrorSchema } from "@/schemas/api-validation-error"
+import type { ApiRequestOptions } from "@/types/api/client"
 
 export class ApiError extends Error {
   constructor(
@@ -10,17 +13,38 @@ export class ApiError extends Error {
   }
 }
 
-type RequestOptions<T> = {
-  parser: (payload: unknown) => T
-} & AxiosRequestConfig
+export class ApiValidationError extends ApiError {
+  constructor(
+    message: string,
+    public readonly errors: Record<string, string[]>,
+    status = 422,
+  ) {
+    super(message, status)
+    this.name = "ApiValidationError"
+  }
+}
+
+export const backendUrl =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000"
 
 const apiClient = axios.create({
+  baseURL: backendUrl,
   headers: {
     Accept: "application/json",
   },
 })
 
+export function getAuthorizationHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+  }
+}
+
 function getFriendlyMessage(status?: number) {
+  if (status === 422) {
+    return "Revise os dados informados e tente novamente."
+  }
+
   if (status === 401) {
     return "Não foi possível validar sua sessão. Entre novamente e tente outra vez."
   }
@@ -43,7 +67,7 @@ function getFriendlyMessage(status?: number) {
 export async function apiRequest<T>({
   parser,
   ...config
-}: RequestOptions<T>): Promise<T> {
+}: ApiRequestOptions<T>): Promise<T> {
   try {
     const response = await apiClient.request({
       ...config,
@@ -65,8 +89,19 @@ export async function apiRequest<T>({
     if (axios.isAxiosError(error)) {
       if (!error.response) {
         throw new ApiError(
-          "Não foi possível conectar ao servidor. Verifique se o backend está disponível.",
+          "Não foi possível concluir a solicitação agora. Tente novamente em instantes.",
         )
+      }
+
+      if (error.response.status === 422) {
+        const parsedPayload = apiValidationErrorSchema.safeParse(error.response.data)
+
+        if (parsedPayload.success) {
+          throw new ApiValidationError(
+            parsedPayload.data.message,
+            parsedPayload.data.errors,
+          )
+        }
       }
 
       throw new ApiError(getFriendlyMessage(error.response.status), error.response.status)

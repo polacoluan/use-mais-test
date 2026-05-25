@@ -1,3 +1,5 @@
+import { ClientsPage } from "@/components/clients-page"
+
 export default function Page() {
-  return <main className="min-h-svh" />
+  return <ClientsPage />
 }

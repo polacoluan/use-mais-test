@@ -7,6 +7,8 @@ import "./globals.css"
 import { QueryProvider } from "@/components/query-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
+import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -37,9 +39,14 @@ export default function RootLayout({
     >
       <body>
         <ClerkProvider appearance={{ theme: shadcn }}>
-          <QueryProvider>
-            <ThemeProvider>{children}</ThemeProvider>
-          </QueryProvider>
+          <TooltipProvider>
+            <QueryProvider>
+              <ThemeProvider>
+                {children}
+                <Toaster position="top-right" richColors />
+              </ThemeProvider>
+            </QueryProvider>
+          </TooltipProvider>
         </ClerkProvider>
       </body>
     </html>
