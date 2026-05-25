@@ -1,24 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   useForm,
-  type DefaultValues,
   type FieldValues,
   type Resolver,
-  type UseFormProps,
   type UseFormReturn,
 } from "react-hook-form"
-import type { z } from "zod"
-
-type Options<TValues extends FieldValues> = Omit<
-  UseFormProps<TValues>,
-  "resolver" | "defaultValues"
-> & {
-  defaultValues?: DefaultValues<TValues>
-  schema: z.ZodType<TValues>
-}
+import type { UseZodFormOptions } from "@/types/hooks/form"
 
 export function useZodForm<TValues extends FieldValues>(
-  options: Options<TValues>,
+  options: UseZodFormOptions<TValues>,
 ): UseFormReturn<TValues> {
   const { schema, ...formOptions } = options
 
