@@ -1,0 +1,326 @@
+{
+  "info": {
+    "_postman_id": "3f6f8d68-75a6-4d18-9354-0d5c7c8c0d6f",
+    "name": "Use Mais RH",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Coleção para autenticar via Clerk Backend API e testar apenas as rotas do backend Laravel."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{backend_bearer_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticação Clerk",
+      "description": "Execute primeiro estas requisições para gerar o Bearer token que será usado nas rotas do backend.",
+      "item": [
+        {
+          "name": "1.1 Listar sessões ativas do usuário",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_secret_key}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{clerk_api_base_url}}/sessions?user_id={{clerk_user_id}}&status=active&limit=10",
+              "host": [
+                "{{clerk_api_base_url}}"
+              ],
+              "path": [
+                "sessions"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "{{clerk_user_id}}"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Resposta OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json();",
+                  "",
+                  "pm.test('Existe pelo menos uma sessão ativa', function () {",
+                  "  pm.expect(Array.isArray(payload)).to.eql(true);",
+                  "  pm.expect(payload.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "if (Array.isArray(payload) && payload.length > 0) {",
+                  "  pm.environment.set('clerk_session_id', payload[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 Gerar token JWT para o backend",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clerk_secret_key}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{clerk_api_base_url}}/sessions/{{clerk_session_id}}/tokens/{{clerk_jwt_template_name}}",
+              "host": [
+                "{{clerk_api_base_url}}"
+              ],
+              "path": [
+                "sessions",
+                "{{clerk_session_id}}",
+                "tokens",
+                "{{clerk_jwt_template_name}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Resposta OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const payload = pm.response.json();",
+                  "",
+                  "pm.test('Token JWT retornado', function () {",
+                  "  pm.expect(payload.jwt).to.be.a('string');",
+                  "  pm.expect(payload.jwt.length).to.be.above(20);",
+                  "});",
+                  "",
+                  "if (payload.jwt) {",
+                  "  pm.environment.set('backend_bearer_token', payload.jwt);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Backend Laravel",
+      "description": "Depois de gerar o token, use apenas estas rotas do backend.",
+      "item": [
+        {
+          "name": "2.1 Listar clientes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/clients?page={{clients_page}}&per_page={{clients_per_page}}",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "{{clients_page}}"
+                },
+                {
+                  "key": "per_page",
+                  "value": "{{clients_per_page}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.2 Buscar cliente por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/clients/{{client_id}}",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{client_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.3 Buscar CEP",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/postal-codes/{{postal_code}}",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "postal-codes",
+                "{{postal_code}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.4 Criar cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Use Mais RH Cliente\",\n  \"email\": \"usemaisrh.cliente@example.com\",\n  \"postal_code\": \"01001000\",\n  \"street\": \"Praça da Sé\",\n  \"street_number\": \"100\",\n  \"complement\": \"Sala 5\",\n  \"neighborhood\": \"Sé\",\n  \"city\": \"São Paulo\",\n  \"state\": \"SP\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/clients",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const payload = pm.response.json();",
+                  "",
+                  "pm.test('Cliente criado', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  pm.expect(payload.data.id).to.exist;",
+                  "});",
+                  "",
+                  "if (payload.data && payload.data.id) {",
+                  "  pm.environment.set('client_id', String(payload.data.id));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.5 Atualizar cliente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Use Mais RH Cliente Atualizado\",\n  \"email\": \"usemaisrh.cliente@example.com\",\n  \"postal_code\": \"01001000\",\n  \"street\": \"Praça da Sé\",\n  \"street_number\": \"101\",\n  \"complement\": \"Sala 6\",\n  \"neighborhood\": \"Sé\",\n  \"city\": \"São Paulo\",\n  \"state\": \"SP\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/clients/{{client_id}}",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{client_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.6 Excluir cliente",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/clients/{{client_id}}",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "clients",
+                "{{client_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
